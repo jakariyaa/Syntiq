@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  emailVerified Boolean
+  image         String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+  
+  quizSessions  QuizSession[]
+  userAnswers   UserAnswer[]
+  subtopicStats UserSubtopicStat[]
+  leaderboardEntry Leaderboard?
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String    @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime? @default(now())
+  updatedAt  DateTime? @updatedAt
+
+  @@map("verification")
+}
+
+model QuizSession {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String   @default("STARTED") // STARTED, COMPLETED
+  score       Int      @default(0)
+  startedAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  questions   QuestionSnapshot[]
+  answers     UserAnswer[]
+
+  @@map("quiz_session")
+}
+
+model QuestionSnapshot {
+  id            String      @id @default(cuid())
+  quizSessionId String
+  quizSession   QuizSession @relation(fields: [quizSessionId], references: [id], onDelete: Cascade)
+  
+  questionText  String
+  options       Json        // Array of strings
+  correctAnswer String
+  explanation   String?
+  subtopic      String
+  difficulty    String
+  
+  userAnswer    UserAnswer?
+
+  @@map("question_snapshot")
+}
+
+model UserAnswer {
+  id                 String           @id @default(cuid())
+  userId             String
+  user               User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  quizSessionId      String
+  quizSession        QuizSession      @relation(fields: [quizSessionId], references: [id], onDelete: Cascade)
+  questionSnapshotId String           @unique
+  questionSnapshot   QuestionSnapshot @relation(fields: [questionSnapshotId], references: [id], onDelete: Cascade)
+  
+  selectedAnswer     String
+  isCorrect          Boolean
+  createdAt          DateTime         @default(now())
+
+  @@map("user_answer")
+}
+
+model UserSubtopicStat {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subtopic  String
+  correct   Int      @default(0)
+  total     Int      @default(0)
+  accuracy  Float    @default(0.0)
+  
+  @@unique([userId, subtopic])
+  @@map("user_subtopic_stat")
+}
+
+model Leaderboard {
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  totalScore Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  @@map("leaderboard")
+}

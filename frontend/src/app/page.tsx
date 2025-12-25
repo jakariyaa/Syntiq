@@ -1,64 +1,205 @@
-import Image from "next/image";
+"use client";
+
+import { useState } from "react";
+import { authClient, useSession } from "@/lib/auth-client";
+import { TopicSelector } from "@/components/TopicSelector";
+import { QuizGame } from "@/components/QuizGame";
+import { QuizResults } from "@/components/QuizResults";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { toast } from "sonner";
 
 export default function Home() {
+  const { data: session, isPending } = useSession();
+  const [gameState, setGameState] = useState<"TOPIC" | "PLAYING" | "RESULTS">("TOPIC");
+  const [quizData, setQuizData] = useState<{ sessionId: string; questions: any[] } | null>(null);
+  const [resultData, setResultData] = useState<any>(null);
+
+  // Auth State
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [name, setName] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
+
+  // Auth Handlers
+  const handleLogin = async () => {
+    setLoading(true);
+    try {
+      await authClient.signIn.email({
+        email,
+        password
+      }, {
+        onSuccess: () => {
+          toast.success("Logged in successfully!");
+        },
+        onError: (ctx) => {
+          toast.error(ctx.error.message);
+        }
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegister = async () => {
+    setLoading(true);
+    try {
+      await authClient.signUp.email({
+        email,
+        password,
+        name,
+      }, {
+        onSuccess: () => {
+          setVerificationSent(true);
+          toast.success("Account created! Please check your email for verification.");
+        },
+        onError: (ctx) => {
+          toast.error(ctx.error.message);
+        }
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Quiz Handlers
+  const handleQuizStart = (data: any) => {
+    setQuizData({ sessionId: data.quizSessionId, questions: data.questions });
+    setGameState("PLAYING");
+  };
+
+  const handleQuizFinish = (result: any) => {
+    setResultData(result);
+    setGameState("RESULTS");
+  };
+
+  const handleRestart = () => {
+    setGameState("TOPIC");
+    setQuizData(null);
+    setResultData(null);
+  };
+
+  if (isPending) return <div className="flex justify-center p-10">Loading...</div>;
+
+  if (!session) {
+    if (verificationSent) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4">
+          <Card className="w-full max-w-md text-center">
+            <CardHeader>
+              <CardTitle className="text-2xl">Check your Email</CardTitle>
+              <CardDescription>We've sent a verification link to <strong>{email}</strong>.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-muted-foreground mb-4">
+                Please verify your account to continue.
+              </p>
+              <Button variant="outline" onClick={() => setVerificationSent(false)}>
+                Back to Login
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-zinc-50 dark:bg-zinc-950 p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center pb-2">
+            <CardTitle className="text-2xl">Welcome to Syntiq</CardTitle>
+            <CardDescription>Login or Register to start quizzing</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="login">Login</TabsTrigger>
+                <TabsTrigger value="register">Register</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="login" className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+                <Button className="w-full" onClick={handleLogin} disabled={loading || !email || !password}>
+                  {loading ? "Logging in..." : "Login"}
+                </Button>
+              </TabsContent>
+
+              <TabsContent value="register" className="space-y-4">
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Email"
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                  <Input
+                    placeholder="Password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                </div>
+                <Button className="w-full" onClick={handleRegister} disabled={loading || !email || !password || !name}>
+                  {loading ? "Creating Account..." : "Create Account"}
+                </Button>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 p-8 font-sans">
+      <header className="flex justify-between items-center max-w-4xl mx-auto mb-10">
+        <h1 className="text-2xl font-bold tracking-tight">Syntiq</h1>
+        <div className="flex items-center gap-4">
+          <span className="text-sm font-medium">{session.user.name || session.user.email}</span>
+          <Button variant="outline" size="sm" onClick={() => authClient.signOut()}>Sign Out</Button>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto">
+        {gameState === "TOPIC" && (
+          <TopicSelector onQuizStart={handleQuizStart} />
+        )}
+
+        {gameState === "PLAYING" && quizData && (
+          <QuizGame
+            quizSessionId={quizData.sessionId}
+            questions={quizData.questions}
+            onFinish={handleQuizFinish}
+          />
+        )}
+
+        {gameState === "RESULTS" && resultData && (
+          <QuizResults
+            result={resultData}
+            onRestart={handleRestart}
+          />
+        )}
       </main>
     </div>
   );

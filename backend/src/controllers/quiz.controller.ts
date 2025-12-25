@@ -8,15 +8,21 @@ const MOCK_QUESTIONS = [
         correctAnswer: "CSS",
         subtopic: "Frontend",
         difficulty: "EASY",
-        explanation: "CSS (Cascading Style Sheets) is used to control the layout and appearance of web pages."
+        explanation:
+            "CSS (Cascading Style Sheets) is used to control the layout and appearance of web pages.",
     },
     {
         questionText: "What does HTML stand for?",
-        options: ["Hyper Text Markup Language", "High Tech Modern Language", "Hyperlinks and Text Markup Language", "Home Tool Markup Language"],
+        options: [
+            "Hyper Text Markup Language",
+            "High Tech Modern Language",
+            "Hyperlinks and Text Markup Language",
+            "Home Tool Markup Language",
+        ],
         correctAnswer: "Hyper Text Markup Language",
         subtopic: "Frontend",
         difficulty: "EASY",
-        explanation: "HTML stands for Hyper Text Markup Language."
+        explanation: "HTML stands for Hyper Text Markup Language.",
     },
     {
         questionText: "Which is a backend framework for Node.js?",
@@ -24,15 +30,22 @@ const MOCK_QUESTIONS = [
         correctAnswer: "Express",
         subtopic: "Backend",
         difficulty: "MEDIUM",
-        explanation: "Express is a minimal and flexible Node.js web application framework."
+        explanation:
+            "Express is a minimal and flexible Node.js web application framework.",
     },
     {
         questionText: "What is the primary key in a database?",
-        options: ["A unique identifier for a record", "The first column in a table", "A password for the database", "The largest number in a table"],
+        options: [
+            "A unique identifier for a record",
+            "The first column in a table",
+            "A password for the database",
+            "The largest number in a table",
+        ],
         correctAnswer: "A unique identifier for a record",
         subtopic: "Database",
         difficulty: "MEDIUM",
-        explanation: "A primary key is a unique identifier for each record in a database table."
+        explanation:
+            "A primary key is a unique identifier for each record in a database table.",
     },
     {
         questionText: "Which of these is a NoSQL database?",
@@ -40,15 +53,20 @@ const MOCK_QUESTIONS = [
         correctAnswer: "MongoDB",
         subtopic: "Database",
         difficulty: "MEDIUM",
-        explanation: "MongoDB is a popular NoSQL database program."
+        explanation: "MongoDB is a popular NoSQL database program.",
     },
     {
         questionText: "What does API stand for?",
-        options: ["Application Programming Interface", "Apple Pie Ingredients", "Advanced Peripheral Interface", "Automated Program Instruction"],
+        options: [
+            "Application Programming Interface",
+            "Apple Pie Ingredients",
+            "Advanced Peripheral Interface",
+            "Automated Program Instruction",
+        ],
         correctAnswer: "Application Programming Interface",
         subtopic: "General",
         difficulty: "EASY",
-        explanation: "API stands for Application Programming Interface."
+        explanation: "API stands for Application Programming Interface.",
     },
     {
         questionText: "Which HTTP method is used to create a resource?",
@@ -56,15 +74,21 @@ const MOCK_QUESTIONS = [
         correctAnswer: "POST",
         subtopic: "API",
         difficulty: "MEDIUM",
-        explanation: "POST is typically used to send data to a server to create/update a resource."
+        explanation:
+            "POST is typically used to send data to a server to create/update a resource.",
     },
     {
         questionText: "What is Git?",
-        options: ["A programming language", "A version control system", "A web browser", "A text editor"],
+        options: [
+            "A programming language",
+            "A version control system",
+            "A web browser",
+            "A text editor",
+        ],
         correctAnswer: "A version control system",
         subtopic: "Tools",
         difficulty: "EASY",
-        explanation: "Git is a distributed version control system."
+        explanation: "Git is a distributed version control system.",
     },
     {
         questionText: "What represents 'true' or 'false' values in code?",
@@ -72,7 +96,7 @@ const MOCK_QUESTIONS = [
         correctAnswer: "Boolean",
         subtopic: "CS Basics",
         difficulty: "EASY",
-        explanation: "Boolean is a data type that has one of two possible values."
+        explanation: "Boolean is a data type that has one of two possible values.",
     },
     {
         questionText: "Which symbol creates a comment in JavaScript?",
@@ -80,13 +104,30 @@ const MOCK_QUESTIONS = [
         correctAnswer: "//",
         subtopic: "Language",
         difficulty: "EASY",
-        explanation: "// is used for single-line comments in JavaScript."
-    }
+        explanation: "// is used for single-line comments in JavaScript.",
+    },
 ];
+
+import { generateQuiz } from "../lib/ai";
+import { getWeakSubtopics } from "../lib/stats";
+
+// ... MOCK_QUESTIONS definition remains ...
 
 export const startQuiz = async (req: Request, res: Response) => {
     try {
         const userId = req.user.id;
+        const { topic = "General Knowledge" } = req.body || {}; // Default topic
+
+        let questionsData;
+
+        try {
+            const weakSubtopics = await getWeakSubtopics(userId);
+            console.log(`Generating quiz for topic: ${topic}. Weak areas: ${weakSubtopics.join(", ")}`);
+            questionsData = await generateQuiz(topic, weakSubtopics);
+        } catch (aiError) {
+            console.error("AI Generation Failed, using fallback:", aiError);
+            questionsData = MOCK_QUESTIONS;
+        }
 
         // Create Quiz Session
         const quizSession = await prisma.quizSession.create({
@@ -94,15 +135,15 @@ export const startQuiz = async (req: Request, res: Response) => {
                 userId,
                 status: "STARTED",
                 questions: {
-                    create: MOCK_QUESTIONS.map(q => ({
+                    create: questionsData.map((q) => ({
                         questionText: q.questionText,
                         options: q.options,
                         correctAnswer: q.correctAnswer,
                         subtopic: q.subtopic,
                         difficulty: q.difficulty,
-                        explanation: q.explanation
-                    }))
-                }
+                        explanation: q.explanation,
+                    })),
+                },
             },
             include: {
                 questions: {
@@ -111,18 +152,17 @@ export const startQuiz = async (req: Request, res: Response) => {
                         questionText: true,
                         options: true,
                         subtopic: true,
-                        difficulty: true
+                        difficulty: true,
                         // Exclude correctAnswer and explanation
-                    }
-                }
-            }
+                    },
+                },
+            },
         });
 
         res.json({
             quizSessionId: quizSession.id,
-            questions: quizSession.questions
+            questions: quizSession.questions,
         });
-
     } catch (error) {
         console.error("Start Quiz Error:", error);
         res.status(500).json({ error: "Failed to start quiz" });
@@ -141,7 +181,7 @@ export const submitQuiz = async (req: Request, res: Response) => {
 
         const session = await prisma.quizSession.findUnique({
             where: { id: quizSessionId },
-            include: { questions: true }
+            include: { questions: true },
         });
 
         if (!session) {
@@ -164,31 +204,33 @@ export const submitQuiz = async (req: Request, res: Response) => {
         const total = session.questions.length;
 
         // Process answers
-        const userAnswersData = answers.map((ans: any) => {
-            const question = session.questions.find(q => q.id === ans.questionId);
-            if (!question) return null;
+        const userAnswersData = answers
+            .map((ans: any) => {
+                const question = session.questions.find((q) => q.id === ans.questionId);
+                if (!question) return null;
 
-            const isCorrect = question.correctAnswer === ans.selectedAnswer;
-            if (isCorrect) {
-                score += 10; // Simple scoring: 10 points per question
-                correctCount++;
-            }
+                const isCorrect = question.correctAnswer === ans.selectedAnswer;
+                if (isCorrect) {
+                    score += 10; // Simple scoring: 10 points per question
+                    correctCount++;
+                }
 
-            return {
-                userId,
-                quizSessionId,
-                questionSnapshotId: question.id,
-                selectedAnswer: ans.selectedAnswer,
-                isCorrect
-            };
-        }).filter(Boolean);
+                return {
+                    userId,
+                    quizSessionId,
+                    questionSnapshotId: question.id,
+                    selectedAnswer: ans.selectedAnswer,
+                    isCorrect,
+                };
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== null);
 
         // Transaction to ensure atomicity
         await prisma.$transaction(async (tx) => {
             // 1. Save User Answers
             if (userAnswersData.length > 0) {
                 await tx.userAnswer.createMany({
-                    data: userAnswersData
+                    data: userAnswersData,
                 });
             }
 
@@ -198,23 +240,25 @@ export const submitQuiz = async (req: Request, res: Response) => {
                 data: {
                     status: "COMPLETED",
                     score,
-                    completedAt: new Date()
-                }
+                    completedAt: new Date(),
+                },
             });
 
             // 3. Update User Subtopic Stats (Simplified: just checking existence for now)
             // In a real app we'd aggregate per subtopic. Skipping for V1 brevity or adding simple loop.
             for (const ua of userAnswersData) {
-                const qs = session.questions.find(q => q.id === ua.questionSnapshotId);
+                const qs = session.questions.find(
+                    (q) => q.id === ua.questionSnapshotId,
+                );
                 if (qs) {
                     await tx.userSubtopicStat.upsert({
                         where: {
-                            userId_subtopic: { userId, subtopic: qs.subtopic }
+                            userId_subtopic: { userId, subtopic: qs.subtopic },
                         },
                         update: {
                             total: { increment: 1 },
                             correct: { increment: ua.isCorrect ? 1 : 0 },
-                            // Recalculate accuracy is tricky in atomic update, 
+                            // Recalculate accuracy is tricky in atomic update,
                             // might leave accuracy calculation for read-time or separate job.
                             // For now just updating counts.
                         },
@@ -223,8 +267,8 @@ export const submitQuiz = async (req: Request, res: Response) => {
                             subtopic: qs.subtopic,
                             total: 1,
                             correct: ua.isCorrect ? 1 : 0,
-                            accuracy: ua.isCorrect ? 100.0 : 0.0
-                        }
+                            accuracy: ua.isCorrect ? 100.0 : 0.0,
+                        },
                     });
                 }
             }
@@ -233,12 +277,12 @@ export const submitQuiz = async (req: Request, res: Response) => {
             await tx.leaderboard.upsert({
                 where: { userId },
                 update: {
-                    totalScore: { increment: score }
+                    totalScore: { increment: score },
                 },
                 create: {
                     userId,
-                    totalScore: score
-                }
+                    totalScore: score,
+                },
             });
         });
 
@@ -246,9 +290,8 @@ export const submitQuiz = async (req: Request, res: Response) => {
             message: "Quiz submitted successfully",
             score,
             correctCount,
-            totalQuestions: total
+            totalQuestions: total,
         });
-
     } catch (error) {
         console.error("Submit Quiz Error:", error);
         res.status(500).json({ error: "Failed to submit quiz" });
