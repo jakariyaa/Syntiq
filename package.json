@@ -1,0 +1,17 @@
+{
+    "name": "my-project",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+        "frontend",
+        "backend"
+    ],
+    "scripts": {
+        "dev": "concurrently \"bun --filter frontend dev\" \"bun --filter backend dev\"",
+        "build": "bun --filter '*' build",
+        "lint": "bun --filter '*' lint"
+    },
+    "devDependencies": {
+        "concurrently": "^9.2.1"
+    }
+}
